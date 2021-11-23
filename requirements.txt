@@ -1,0 +1,10 @@
+pandas
+requests
+streamlit
+plotly
+seaborn
+matplotlib
+numpy
+torch==1.10
+pyarrow
+
