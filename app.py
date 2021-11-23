@@ -205,7 +205,7 @@ class Model(nn.Module):
         
 model = Model()
 
-model.load_state_dict(torch.load('model/model.pth'))
+model.load_state_dict(torch.load('model/model.pth', map_location='cpu'))
 model.eval()
 
 criterion = nn.MSELoss()
