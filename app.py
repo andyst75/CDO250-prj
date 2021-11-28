@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 import base64
 
@@ -149,8 +150,15 @@ device = torch.device('cpu')
 @st.cache(allow_output_mutation=False)
 def get_model(device):
     model = Model(device)
-    model.load_state_dict(torch.load(f'model/{MODEL_NAME}', map_location='cpu'))
+    model_path = f'model/{MODEL_NAME}'
+    if os.path.exists(model_path):
+        state_dict = torch.load(model_path, map_location='cpu')
+        model.load_state_dict(state_dict)
+    else:
+        st.error("Model checkpoint not found")
+
     model.eval()
+    model.to(device)
     return model
 
 model = get_model(device)
