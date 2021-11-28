@@ -192,7 +192,7 @@ period_change_power = col1.date_input(
     label="Дата изменения потребляемой мощности",
     value=period_from,
     min_value=min_date,
-    max_value=max_date)
+    max_value=datetime.utcfromtimestamp(plot_df['date'].values[-1].astype(float)/1e9))
 
 change_power = col1.number_input(
     label="Объем изменения, МВт/сут",
