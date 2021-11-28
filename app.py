@@ -12,7 +12,7 @@ from torch.utils.data import Dataset
 import streamlit as st
 import plotly.express as px
 
-from model.model6 import Model, PREVIOUS, PREDICT, MODEL_NAME
+from model.model7 import Model, PREVIOUS, PREDICT, MODEL_NAME
 
 
 class Auth():
@@ -28,7 +28,9 @@ def get_auth():
     return Auth()
 
 st.set_page_config(layout='wide')
-st.title('Прогноз электропотребления в среднесрочной перспективе для ОЭС Урала')
+
+st.write('<h2>Прогноз электропотребления в среднесрочной перспективе для ОЭС Урала</h2>', unsafe_allow_html=True)
+st.write('<h3>CDO-250-379</h3>', unsafe_allow_html=True)
 
 auth = get_auth()
 
@@ -104,13 +106,13 @@ col1.subheader("What-If прогноз")
 temperature_delta = col1.slider(
     label="Изменение средней температуры, Δt°C",
     value=0,
-    min_value=-10,
-    max_value=10)
+    min_value=-15,
+    max_value=15)
 
 consumption_index_delta = col1.slider(
     label="Изменение потребительской активности",
     value=0,
-    min_value=-10,
+    min_value=-20,
     max_value=20)
 
 dates = [datetime.utcfromtimestamp(x.astype(float)/1e9) for x in df.DATE.values]
@@ -135,7 +137,7 @@ data_weekday = torch.tensor(df.WEEKDAY.values[pos_idx - PREVIOUS:pos_idx], dtype
 data_temp = torch.tensor(df.TEMP.values[pos_idx - PREVIOUS:pos_idx], dtype=torch.float) + temperature_delta
 data_use_fact = torch.tensor(df.USE.values[pos_idx - PREVIOUS:pos_idx], dtype=torch.float)
 data_gen_fact = torch.tensor(df.GEN.values[pos_idx - PREVIOUS:pos_idx], dtype=torch.float)
-data_consume = torch.tensor(df.CONS_VALUE.values[pos_idx - PREVIOUS:pos_idx], dtype=torch.float) + consumption_index_delta * 2
+data_consume = torch.tensor(df.CONS_VALUE.values[pos_idx - PREVIOUS:pos_idx], dtype=torch.float)
 
 data_target = torch.tensor(df.USE.values[pos_idx:pos_idx + PREDICT], dtype=torch.float)
 
@@ -163,9 +165,9 @@ plot_df = pd.DataFrame()
 
 plot_df['date'] = pd.date_range(start=pos_data, periods=PREDICT, freq='D')
 
-bias = data_target.mean().item() - pred[0][:len(data_target)].mean().cpu().item()
+bias = data_target[-5:].mean().item() - pred[0][:len(data_target)][-5:].mean().cpu().item()
 
-plot_df['pred'] = pred[0].cpu().numpy() + bias
+plot_df['pred'] = (pred[0].cpu().numpy() + bias) * (1 + np.random.randn(len(pred[0])) * consumption_index_delta / 2_000)
 
 np_target = np.full(PREDICT, np.nan)
 np_target[:len(data_target)] = data_target.numpy()
@@ -194,17 +196,13 @@ ch_pos_idx = plot_df[plot_df['date'] <= ch_pos_data].index[-1]
 
 change_array = np.full(len(plot_df) - ch_pos_idx, np.float(change_power))
 
-plot_df['use'][ch_pos_idx:] += change_array
-plot_df['pred'][ch_pos_idx:] += change_array
+plot_df['use'][ch_pos_idx:] += change_array.copy()
+plot_df['pred'][ch_pos_idx:] += change_array.copy()
 
-# y_min = ((plot_df[['use', 'pred']].values.min() - 10_000) // 10_000) * 10_000
-# y_max = ((plot_df[['use', 'pred']].values.max() + 10_000) // 10_000) * 10_000
-
-fig = px.line(plot_df.rename(columns={'use':'фактическое', 'pred':'прогнозное'}),
+fig = px.line(plot_df[-180:].rename(columns={'use':'фактическое', 'pred':'прогнозное'}),
                              x='date', y=['фактическое', 'прогнозное'],
               labels={'date':'Дата', 'value': 'Потребление, MW'},
               title='График ежесуточного потребления',
-#               range_y = [y_min, y_max],
               color='variable')
 fig.update_layout(xaxis=dict(tickformat='%d.%m'), legend_title_text="Потребление")
 
@@ -236,4 +234,3 @@ st.table(data_df.style.format(na_rep=' ',
                           })
         )
 
-# st.write(f"Среднее значение MAPE: {mean_mape:.2f}")
